@@ -102,10 +102,14 @@
                     studyInfo.removeChild(studyInfo.firstChild);
                 }
 
-                const studyDate = document.createElement('p');
-                studyDate.innerHTML = selectedStudyDate;
+                const studyInstanceUIDParagraph = document.createElement('p');
+                studyInstanceUIDParagraph.innerHTML = `<b>Study Instance UID:</b> ${selectedStudyInstanceUID}`;
+                studyInfo.appendChild(studyInstanceUIDParagraph);
 
+                const studyDate = document.createElement('p');
+                studyDate.innerHTML = `<b>Study Date:</b> ${selectedStudyDate}`;
                 studyInfo.appendChild(studyDate);
+
             }
 
             let UpdateThumbnails = function () {
