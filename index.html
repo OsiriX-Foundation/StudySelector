@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+
+<head>
+    <title>Study Selector</title>
+</head>
+
+<body>
+    <p>
+        <p>
+            <div>
+                <input id="picker" type="text" placeholder="Select Date.." onchange="UpdateDate(this)" data-input>
+            </div>
+        </p>
+
+        <p>
+            <div>
+                <select id="studylistSelect" onchange="SelectStudy(this)">
+                </select>
+            </div>
+        </p>
+
+        <p>
+            <div id="studyInfo">
+            </div>
+        </p>
+
+        <p>
+            <div id="thumbnails">
+            </div>
+        </p>
+
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script>
+            const kheopsURL = 'https://demo.kheops.online';
+            const ohifURL = 'https://ohif.kheops.online';
+            const accessToken = 'IzJg7CGymJBXuRXk9i6fhR';
+            const patientId = 'F063TE';
+
+            const STUDY_DESCRIPTION_TAG = '00081030';
+            const STUDY_INSTANCE_UID_TAG = '0020000D';
+            const SERIES_INSTANCE_UID_TAG = '0020000E';
+
+            let selectedStudyInstanceUID;
+
+            const connection = axios.create({
+                baseURL: `${kheopsURL}/api`,
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            let UpdateDate = function (datePicker) {
+                const dateString = datePicker.value;
+                const date = new Date(dateString);
+
+                const startDate = new Date(date.getTime());
+                startDate.setDate(date.getDate() - 7);
+
+                const endDate = new Date(date.getTime());
+                endDate.setDate(date.getDate() + 7);
+
+                connection.get(`/studies?includefield=${STUDY_DESCRIPTION_TAG}&PatientID=${patientId}&StudyDate=${startDate.yyyymmdd()}-${endDate.yyyymmdd()}`).then(function receiveStudies(response) {
+                    const dicomStudies = response.data;
+                    const studyListSelect = document.getElementById("studylistSelect");
+
+                    while (studyListSelect.firstChild) {
+                        studyListSelect.removeChild(studyListSelect.firstChild);
+                    }
+
+                    for (let i = 0; i < dicomStudies.length; i++) {
+                        const option = document.createElement("option");
+
+                        const studyDescription = dicomStudies[i][STUDY_DESCRIPTION_TAG]['Value'][0];
+                        option.text = studyDescription;
+                        option.setAttribute('value', dicomStudies[i][STUDY_INSTANCE_UID_TAG]['Value'][0])
+
+                        studyListSelect.add(option);
+                    }
+
+                    if (dicomStudies.length > 0) {
+                        selectedStudyInstanceUID = dicomStudies[0][STUDY_INSTANCE_UID_TAG]['Value'][0]
+                    } else {
+                        selectedStudyInstanceUID = null;
+                    }
+
+                    UpdateStudy();
+                });
+            }
+
+            let SelectStudy = function (optionObject) {
+                selectedStudyInstanceUID = optionObject.value;
+                UpdateStudy();
+            }
+
+            let UpdateStudyInfo = function () {
+                const studyInfo = document.getElementById("studyInfo");
+                while (studyInfo.firstChild) {
+                    studyInfo.removeChild(studyInfo.firstChild);
+                }
+            }
+
+            let UpdateThumbnails = function () {
+                const thumbnails = document.getElementById("thumbnails");
+                while (thumbnails.firstChild) {
+                    thumbnails.removeChild(thumbnails.firstChild);
+                }
+
+                if (!selectedStudyInstanceUID) {
+                    return;
+                }
+
+                connection.get(`/studies/${selectedStudyInstanceUID}/series`).then(function receiveSeries(response) {
+                    const dicomSeries = response.data;
+
+                    for (let i = 0; i < dicomSeries.length; i++) {
+                        const seriesInstanceUID = dicomSeries[i][SERIES_INSTANCE_UID_TAG]['Value'][0];
+
+                        const a = document.createElement('a');
+                        const ohifMetadataURL = `${kheopsURL}/api/studies/${selectedStudyInstanceUID}/ohifmetadata?firstseries=${seriesInstanceUID}`;
+                        a.href = `${ohifURL}/?url=${encodeURIComponent(ohifMetadataURL)}#token=${accessToken}`;
+                        a.target = '_blank';
+                        thumbnails.appendChild(a);
+
+                        const img = document.createElement("img");
+                        img.setAttribute('src', `${kheopsURL}/api/link/${accessToken}/wado?studyUID=${selectedStudyInstanceUID}&seriesUID=${seriesInstanceUID}&requestType=WADO&rows=256&columns=256&contentType=image%2Fjpeg`);
+                        img.setAttribute('height', '128');
+                        img.setAttribute('width', '128');
+                        img.setAttribute('alt', `StudyInstanceUID=${selectedStudyInstanceUID}, SeriesInstanceUID=${seriesInstanceUID}`);
+                        img.border = 5;
+                        a.appendChild(img);
+                    }
+                });
+            }
+
+            let UpdateStudy = function () {
+                UpdateStudyInfo();
+                UpdateThumbnails();
+            }
+
+
+
+            flatpickr(document.getElementById('picker'), {});
+
+            Date.prototype.yyyymmdd = function () {
+                var mm = this.getMonth() + 1; // getMonth() is zero-based
+                var dd = this.getDate();
+
+                return [this.getFullYear(),
+                (mm > 9 ? '' : '0') + mm,
+                (dd > 9 ? '' : '0') + dd
+                ].join('');
+            };
+        </script>
+
+    </p>
+</body>
