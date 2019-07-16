@@ -39,10 +39,12 @@
             const patientId = 'F063TE';
 
             const STUDY_DESCRIPTION_TAG = '00081030';
+            const STUDY_DATE_TAG = '00080020';
             const STUDY_INSTANCE_UID_TAG = '0020000D';
             const SERIES_INSTANCE_UID_TAG = '0020000E';
 
             let selectedStudyInstanceUID;
+            let selectedStudyDate;
 
             const connection = axios.create({
                 baseURL: `${kheopsURL}/api`,
@@ -59,7 +61,7 @@
                 const endDate = new Date(date.getTime());
                 endDate.setDate(date.getDate() + 7);
 
-                connection.get(`/studies?includefield=${STUDY_DESCRIPTION_TAG}&PatientID=${patientId}&StudyDate=${startDate.yyyymmdd()}-${endDate.yyyymmdd()}`).then(function receiveStudies(response) {
+                connection.get(`/studies?includefield=${STUDY_DESCRIPTION_TAG}&PatientID=${encodeURIComponent(patientId)}&StudyDate=${startDate.yyyymmdd()}-${endDate.yyyymmdd()}`).then(function receiveStudies(response) {
                     const dicomStudies = response.data;
                     const studyListSelect = document.getElementById("studylistSelect");
 
@@ -78,9 +80,11 @@
                     }
 
                     if (dicomStudies.length > 0) {
-                        selectedStudyInstanceUID = dicomStudies[0][STUDY_INSTANCE_UID_TAG]['Value'][0]
+                        selectedStudyInstanceUID = dicomStudies[0][STUDY_INSTANCE_UID_TAG]['Value'][0];
+                        selectedStudyDate = dicomStudies[0][STUDY_DATE_TAG]['Value'][0]
                     } else {
                         selectedStudyInstanceUID = null;
+                        selectedStudyDate = null;
                     }
 
                     UpdateStudy();
@@ -97,6 +101,11 @@
                 while (studyInfo.firstChild) {
                     studyInfo.removeChild(studyInfo.firstChild);
                 }
+
+                const studyDate = document.createElement('p');
+                studyDate.innerHTML = selectedStudyDate;
+
+                studyInfo.appendChild(studyDate);
             }
 
             let UpdateThumbnails = function () {
@@ -136,8 +145,6 @@
                 UpdateStudyInfo();
                 UpdateThumbnails();
             }
-
-
 
             flatpickr(document.getElementById('picker'), {});
 
