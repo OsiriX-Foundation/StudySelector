@@ -6,15 +6,10 @@
 
 <body>
     <p>
-        <p>
-            <div>
-                <input id="picker" type="text" placeholder="Select Date.." onchange="UpdateDate(this)" data-input>
-            </div>
-        </p>
 
         <p>
             <div>
-                <select id="studylistSelect" onchange="SelectStudy(this)">
+                <select id="studylistSelect">
                 </select>
             </div>
         </p>
@@ -29,138 +24,114 @@
             </div>
         </p>
 
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        
         <script>
+        void function () {
             const kheopsURL = 'https://demo.kheops.online';
             const ohifURL = 'https://ohif.kheops.online';
-            const accessToken = 'IzJg7CGymJBXuRXk9i6fhR';
+            const accessToken = 'SZ4yLzF7FheiuimK8YmkXH';
             const patientId = 'F063TE';
-
             const STUDY_DESCRIPTION_TAG = '00081030';
             const STUDY_DATE_TAG = '00080020';
             const STUDY_INSTANCE_UID_TAG = '0020000D';
             const SERIES_INSTANCE_UID_TAG = '0020000E';
-
+            const SERIES_DESCRIPTION_TAG = '0008103E';
             let selectedStudyInstanceUID;
             let selectedStudyDate;
-
+            
+            const studyListSelect = document.currentScript.parentElement.querySelector('#studylistSelect');
+            const studyInfo = document.currentScript.parentElement.querySelector('#studyInfo');
+            const thumbnails = document.currentScript.parentElement.querySelector('#thumbnails');
+                        
             const connection = axios.create({
                 baseURL: `${kheopsURL}/api`,
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             });
-
-            let UpdateDate = function (datePicker) {
-                const dateString = datePicker.value;
-                const date = new Date(dateString);
-
-                const startDate = new Date(date.getTime());
-                startDate.setDate(date.getDate() - 7);
-
-                const endDate = new Date(date.getTime());
-                endDate.setDate(date.getDate() + 7);
-
-                connection.get(`/studies?includefield=${STUDY_DESCRIPTION_TAG}&PatientID=${encodeURIComponent(patientId)}&StudyDate=${startDate.yyyymmdd()}-${endDate.yyyymmdd()}`).then(function receiveStudies(response) {
+            let UpdateDate = function () {
+                connection.get(`/studies?includefield=${STUDY_DESCRIPTION_TAG}&PatientID=${encodeURIComponent(patientId)}`).then(function receiveStudies(response) {
                     const dicomStudies = response.data;
-                    const studyListSelect = document.getElementById("studylistSelect");
-
                     while (studyListSelect.firstChild) {
                         studyListSelect.removeChild(studyListSelect.firstChild);
                     }
-
                     for (let i = 0; i < dicomStudies.length; i++) {
                         const option = document.createElement("option");
-
                         const studyDescription = dicomStudies[i][STUDY_DESCRIPTION_TAG]['Value'][0];
                         option.text = studyDescription;
-                        option.setAttribute('value', dicomStudies[i][STUDY_INSTANCE_UID_TAG]['Value'][0])
-
+                        option.setAttribute('value', dicomStudies[i][STUDY_INSTANCE_UID_TAG]['Value'][0]);
                         studyListSelect.add(option);
                     }
-
                     if (dicomStudies.length > 0) {
                         selectedStudyInstanceUID = dicomStudies[0][STUDY_INSTANCE_UID_TAG]['Value'][0];
-                        selectedStudyDate = dicomStudies[0][STUDY_DATE_TAG]['Value'][0]
+                        selectedStudyDate = dicomStudies[0][STUDY_DATE_TAG]['Value'][0];
                     } else {
                         selectedStudyInstanceUID = null;
                         selectedStudyDate = null;
                     }
-
                     UpdateStudy();
                 });
-            }
-
-            let SelectStudy = function (optionObject) {
-                selectedStudyInstanceUID = optionObject.value;
+            };
+            let SelectStudy = function () {
+                selectedStudyInstanceUID = studyListSelect.value;
                 UpdateStudy();
-            }
-
+            };
             let UpdateStudyInfo = function () {
-                const studyInfo = document.getElementById("studyInfo");
                 while (studyInfo.firstChild) {
                     studyInfo.removeChild(studyInfo.firstChild);
                 }
-
                 const studyInstanceUIDParagraph = document.createElement('p');
-                studyInstanceUIDParagraph.innerHTML = `<b>Study Instance UID:</b> ${selectedStudyInstanceUID}`;
+                studyInstanceUIDParagraph.textContent = `Study Instance UID: ${selectedStudyInstanceUID}`;
                 studyInfo.appendChild(studyInstanceUIDParagraph);
-
                 const studyDate = document.createElement('p');
-                studyDate.innerHTML = `<b>Study Date:</b> ${selectedStudyDate}`;
+                studyDate.textContent = `Study Date: ${selectedStudyDate}`;
                 studyInfo.appendChild(studyDate);
-
-            }
-
+            };
             let UpdateThumbnails = function () {
-                const thumbnails = document.getElementById("thumbnails");
                 while (thumbnails.firstChild) {
                     thumbnails.removeChild(thumbnails.firstChild);
                 }
-
                 if (!selectedStudyInstanceUID) {
                     return;
                 }
-
                 connection.get(`/studies/${selectedStudyInstanceUID}/series`).then(function receiveSeries(response) {
                     const dicomSeries = response.data;
-
                     for (let i = 0; i < dicomSeries.length; i++) {
                         const seriesInstanceUID = dicomSeries[i][SERIES_INSTANCE_UID_TAG]['Value'][0];
-
                         const a = document.createElement('a');
                         const ohifMetadataURL = `${kheopsURL}/api/studies/${selectedStudyInstanceUID}/ohifmetadata?firstseries=${seriesInstanceUID}`;
                         a.href = `${ohifURL}/?url=${encodeURIComponent(ohifMetadataURL)}#token=${accessToken}`;
                         a.target = '_blank';
                         thumbnails.appendChild(a);
-
+                        
+                        const figure = document.createElement('figure');
+                        figure.style.display = 'inline-block';
+                        a.appendChild(figure);
+                        
                         const img = document.createElement("img");
                         img.setAttribute('src', `${kheopsURL}/api/link/${accessToken}/wado?studyUID=${selectedStudyInstanceUID}&seriesUID=${seriesInstanceUID}&requestType=WADO&rows=256&columns=256&contentType=image%2Fjpeg`);
                         img.setAttribute('height', '128');
                         img.setAttribute('width', '128');
                         img.setAttribute('alt', `StudyInstanceUID=${selectedStudyInstanceUID}, SeriesInstanceUID=${seriesInstanceUID}`);
                         img.border = 5;
-                        a.appendChild(img);
+                        figure.appendChild(img);
+                        
+                        const figCaption = document.createElement('figcaption');
+                        figCaption.textContent = dicomSeries[i][SERIES_DESCRIPTION_TAG]['Value'][0];
+                        figure.appendChild(figCaption);
                     }
                 });
-            }
-
+            };
             let UpdateStudy = function () {
                 UpdateStudyInfo();
                 UpdateThumbnails();
-            }
-
-            flatpickr(document.getElementById('picker'), {});
-
-            Date.prototype.yyyymmdd = function () {
-                var mm = this.getMonth() + 1; // getMonth() is zero-based
-                var dd = this.getDate();
-
-                return [this.getFullYear(),
-                (mm > 9 ? '' : '0') + mm,
-                (dd > 9 ? '' : '0') + dd
-                ].join('');
             };
+            
+            studyListSelect.onchange = SelectStudy;
+           
+            UpdateDate();
+            
+            } ();
+            
         </script>
 
     </p>
